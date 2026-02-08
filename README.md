@@ -22,12 +22,12 @@ The final system predicts the most relevant job role given a set of skills and c
 
 ## 🎯 Project Objectives
 
-- ✅ Collect job data from online sources
-- ✅ Merge and preprocess multiple datasets
-- ✅ Analyze skill demand trends
-- ✅ Train classification models to predict job roles
-- ✅ Track ML experiments using MLflow
-- ✅ Deploy the model using Docker
+- Collect job data from online sources
+- Merge and preprocess multiple datasets
+- Analyze skill demand trends
+- Train classification models to predict job roles
+- Track ML experiments using MLflow
+- Deploy the model using Docker
 
 ---
 
@@ -249,10 +249,10 @@ docker-compose up --build
 
 Models are evaluated using:
 
-- ✅ Accuracy
-- ✅ Precision
-- ✅ Recall
-- ✅ F1 Score
+-  Accuracy
+-  Precision
+-  Recall
+-  F1 Score
 
 ---
 
