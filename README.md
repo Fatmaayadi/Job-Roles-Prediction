@@ -1,8 +1,8 @@
 # 🎯 Job-Roles-Prediction
 
-> Job Roles Prediction using Machine Learning & Web Scraping
+ Job Roles Prediction using Machine Learning & Web Scraping
 
----
+
 
 ## 📌 Project Description
 
@@ -268,7 +268,10 @@ Models are evaluated using:
 
 ## ⚠️ Challenges
 
-- Scraping limitations (CAPTCHA / anti-bot protection)
-- Dataset imbalance
-- Skills normalization
-- Text preprocessing complexity
+Scraping limitations (CAPTCHA / anti-bot protection)
+
+Dataset imbalance
+
+Skills normalization
+
+Text preprocessing complexity
