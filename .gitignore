@@ -1,3 +1,4 @@
 data/pkl/
 *.pkl
 node_modules/
+.db
