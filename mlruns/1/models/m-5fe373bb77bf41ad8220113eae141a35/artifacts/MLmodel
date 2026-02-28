@@ -1,0 +1,23 @@
+artifact_path: file:c:/Users/DELL/OneDrive/Bureau/Job-Roles-Prediction/code/mlruns/1/models/m-5fe373bb77bf41ad8220113eae141a35/artifacts
+flavors:
+  python_function:
+    env:
+      conda: conda.yaml
+      virtualenv: python_env.yaml
+    loader_module: mlflow.sklearn
+    model_path: model.pkl
+    predict_fn: predict
+    python_version: 3.13.3
+  sklearn:
+    code: null
+    pickled_model: model.pkl
+    serialization_format: cloudpickle
+    sklearn_version: 1.6.1
+    skops_trusted_types: null
+mlflow_version: 3.10.0
+model_id: m-5fe373bb77bf41ad8220113eae141a35
+model_size_bytes: 4762495
+model_uuid: m-5fe373bb77bf41ad8220113eae141a35
+prompts: null
+run_id: cadd76e67d11403db72dbe3afe693b43
+utc_time_created: '2026-02-28 14:53:56.870454'
