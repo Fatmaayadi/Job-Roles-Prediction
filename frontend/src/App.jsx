@@ -1,4 +1,5 @@
 import { useState } from "react";
+import Profile from "./Profile.jsx";
 
 const API = "http://127.0.0.1:8000";
 
@@ -8,6 +9,12 @@ export default function App({ user, onLogout }) {
   const [loading, setLoading]   = useState(false);
   const [result, setResult]     = useState(null);
   const [error, setError]       = useState(null);
+  const [showProfile, setShowProfile] = useState(false);  // ← nouveau
+
+  // ── si on affiche le profil, on rend Profile directement ──
+  if (showProfile) {
+    return <Profile user={user} onBack={() => setShowProfile(false)} />;
+  }
 
   const onDrop = (e) => {
     e.preventDefault(); setDragging(false);
@@ -56,6 +63,10 @@ export default function App({ user, onLogout }) {
           <span style={{ color: "#78716c", fontSize: 14, fontWeight: 500 }}>
             👋 {user?.username}
           </span>
+          {/* ── bouton Profile ── */}
+          <button onClick={() => setShowProfile(true)} style={s.profileBtn}>
+            My Profile
+          </button>
           <button onClick={onLogout} style={s.logoutBtn}>
             Logout
           </button>
@@ -182,6 +193,14 @@ export default function App({ user, onLogout }) {
                 <span style={s.barVal}>{(item.probability * 100).toFixed(1)}%</span>
               </div>
             ))}
+
+            {/* ── raccourci vers le profil après une prédiction ── */}
+            <button
+              onClick={() => setShowProfile(true)}
+              style={{ ...s.profileBtn, marginTop: 20, width: "100%", justifyContent: "center" }}
+            >
+              📋 View in My Profile History
+            </button>
           </div>
         </section>
       )}
@@ -211,8 +230,10 @@ const s = {
   nav:       { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "20px 60px", borderBottom: "1px solid #f5e6d8" },
   navLogo:   { display: "flex", alignItems: "center", gap: 8, fontWeight: 800, fontSize: 20, color: "#f97316" },
   navDot:    { width: 10, height: 10, borderRadius: "50%", background: "#f97316", display: "inline-block" },
-  navLinks:  { display: "flex", alignItems: "center", gap: 20 },
-  logoutBtn: { background: "none", border: "1px solid #f5e6d8", color: "#78716c", borderRadius: 8, padding: "6px 16px", cursor: "pointer", fontSize: 13, fontWeight: 600 },
+  navLinks:  { display: "flex", alignItems: "center", gap: 12 },
+
+  profileBtn: { display: "inline-flex", alignItems: "center", gap: 6, background: "#fff7ed", border: "1px solid #fed7aa", color: "#f97316", borderRadius: 8, padding: "6px 16px", cursor: "pointer", fontSize: 13, fontWeight: 700 },
+  logoutBtn:  { background: "none", border: "1px solid #f5e6d8", color: "#78716c", borderRadius: 8, padding: "6px 16px", cursor: "pointer", fontSize: 13, fontWeight: 600 },
 
   hero:        { position: "relative", overflow: "hidden", padding: "80px 24px 60px", textAlign: "center" },
   blob:        { position: "absolute", borderRadius: "50%", filter: "blur(60px)", opacity: 0.6, animation: "float 6s ease-in-out infinite" },

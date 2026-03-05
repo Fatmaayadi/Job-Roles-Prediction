@@ -1,4 +1,5 @@
 data/pkl/
 *.pkl
 node_modules/
-.db
+data/users.json
+data/history.json
