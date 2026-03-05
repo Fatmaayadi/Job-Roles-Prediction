@@ -2,7 +2,7 @@ import { useState } from "react";
 
 const API = "http://127.0.0.1:8000";
 
-export default function App() {
+export default function App({ user, onLogout }) {
   const [file, setFile]         = useState(null);
   const [dragging, setDragging] = useState(false);
   const [loading, setLoading]   = useState(false);
@@ -25,7 +25,11 @@ export default function App() {
     const form = new FormData();
     form.append("file", file);
     try {
-      const res  = await fetch(`${API}/predict-cv`, { method: "POST", body: form });
+      const res  = await fetch(`${API}/predict-cv`, {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${user.access_token}` },
+        body: form,
+      });
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || "Server error");
       setResult(data);
@@ -49,21 +53,22 @@ export default function App() {
           JobScan
         </div>
         <div style={s.navLinks}>
-          <a href="#" style={s.navLink}>Home</a>
-          <a href="#" style={s.navLink}>About</a>
-          <a href="#" style={s.navLink}>Contact</a>
+          <span style={{ color: "#78716c", fontSize: 14, fontWeight: 500 }}>
+            👋 {user?.username}
+          </span>
+          <button onClick={onLogout} style={s.logoutBtn}>
+            Logout
+          </button>
         </div>
       </nav>
 
       {/* ── HERO ── */}
       <section style={s.hero}>
-        {/* floating blobs */}
         <div style={{ ...s.blob, top: 60,  left: "10%", width: 320, height: 320, background: "#fff7ed", animationDelay: "0s"   }} />
         <div style={{ ...s.blob, top: 200, right: "8%", width: 240, height: 240, background: "#ffedd5", animationDelay: "2s"   }} />
         <div style={{ ...s.blob, bottom: 0, left: "30%", width: 180, height: 180, background: "#fed7aa", animationDelay: "4s" }} />
 
         <div style={s.heroContent}>
-          {/* icon */}
           <div style={s.iconWrap}>
             <svg width="38" height="38" viewBox="0 0 24 24" fill="none">
               <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"
@@ -129,7 +134,6 @@ export default function App() {
             )}
           </button>
 
-          {/* ── ERROR ── */}
           {error && <div style={s.errorBox}>⚠️ {error}</div>}
         </div>
       </section>
@@ -204,25 +208,22 @@ export default function App() {
 const s = {
   page:  { minHeight: "100vh", fontFamily: "'Segoe UI', sans-serif", background: "#fffbf7", color: "#1c1917" },
 
-  /* nav */
-  nav:      { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "20px 60px", borderBottom: "1px solid #f5e6d8" },
-  navLogo:  { display: "flex", alignItems: "center", gap: 8, fontWeight: 800, fontSize: 20, color: "#f97316" },
-  navDot:   { width: 10, height: 10, borderRadius: "50%", background: "#f97316", display: "inline-block" },
-  navLinks: { display: "flex", gap: 32 },
-  navLink:  { color: "#78716c", fontSize: 14, fontWeight: 500, transition: "color .2s" },
+  nav:       { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "20px 60px", borderBottom: "1px solid #f5e6d8" },
+  navLogo:   { display: "flex", alignItems: "center", gap: 8, fontWeight: 800, fontSize: 20, color: "#f97316" },
+  navDot:    { width: 10, height: 10, borderRadius: "50%", background: "#f97316", display: "inline-block" },
+  navLinks:  { display: "flex", alignItems: "center", gap: 20 },
+  logoutBtn: { background: "none", border: "1px solid #f5e6d8", color: "#78716c", borderRadius: 8, padding: "6px 16px", cursor: "pointer", fontSize: 13, fontWeight: 600 },
 
-  /* hero */
   hero:        { position: "relative", overflow: "hidden", padding: "80px 24px 60px", textAlign: "center" },
   blob:        { position: "absolute", borderRadius: "50%", filter: "blur(60px)", opacity: 0.6, animation: "float 6s ease-in-out infinite" },
   heroContent: { position: "relative", zIndex: 1, maxWidth: 600, margin: "0 auto" },
 
-  iconWrap:  { display: "inline-flex", alignItems: "center", justifyContent: "center", width: 70, height: 70, borderRadius: 20, background: "#fff7ed", border: "2px solid #fed7aa", marginBottom: 24 },
-  greeting:  { fontSize: 14, color: "#a8a29e", fontWeight: 500, marginBottom: 16, letterSpacing: .5 },
-  heroTitle: { fontSize: 46, fontWeight: 900, lineHeight: 1.15, color: "#1c1917", marginBottom: 18 },
-  heroAccent:{ color: "#f97316" },
-  heroSub:   { fontSize: 16, color: "#78716c", lineHeight: 1.7, marginBottom: 40 },
+  iconWrap:   { display: "inline-flex", alignItems: "center", justifyContent: "center", width: 70, height: 70, borderRadius: 20, background: "#fff7ed", border: "2px solid #fed7aa", marginBottom: 24 },
+  greeting:   { fontSize: 14, color: "#a8a29e", fontWeight: 500, marginBottom: 16, letterSpacing: .5 },
+  heroTitle:  { fontSize: 46, fontWeight: 900, lineHeight: 1.15, color: "#1c1917", marginBottom: 18 },
+  heroAccent: { color: "#f97316" },
+  heroSub:    { fontSize: 16, color: "#78716c", lineHeight: 1.7, marginBottom: 40 },
 
-  /* dropzone */
   dropzone:       { border: "2px dashed #fed7aa", borderRadius: 16, padding: "36px 24px", background: "#fff7ed", cursor: "pointer", transition: "all .2s", marginBottom: 20 },
   dropzoneActive: { borderColor: "#f97316", background: "#ffedd5" },
   dropText:       { fontWeight: 600, fontSize: 15, color: "#1c1917", marginBottom: 6 },
@@ -233,14 +234,12 @@ const s = {
   fileName:       { fontWeight: 600, fontSize: 14, color: "#1c1917" },
   changeBtn:      { fontSize: 12, color: "#f97316", fontWeight: 700, cursor: "pointer", textDecoration: "underline" },
 
-  /* predict button */
   predictBtn:    { width: "100%", padding: "16px", borderRadius: 12, background: "#1c1917", color: "#fff", fontWeight: 800, fontSize: 16, border: "none", cursor: "pointer", transition: "opacity .2s" },
   predictBtnOff: { opacity: 0.3, cursor: "not-allowed" },
   spinner:       { display: "flex", alignItems: "center", justifyContent: "center", gap: 8 },
 
   errorBox: { marginTop: 16, padding: "12px 16px", borderRadius: 10, background: "#fff1f2", border: "1px solid #fda4af", color: "#be123c", fontSize: 14 },
 
-  /* results */
   resultSection: { padding: "0 24px 60px", display: "flex", justifyContent: "center" },
   resultCard:    { width: "100%", maxWidth: 560, background: "#fff", border: "1px solid #f5e6d8", borderRadius: 20, padding: 32, boxShadow: "0 8px 40px rgba(249,115,22,.08)" },
   resultLabel:   { fontSize: 12, letterSpacing: 2, color: "#f97316", textTransform: "uppercase", marginBottom: 8 },
@@ -259,6 +258,5 @@ const s = {
   barFill:   { height: "100%", borderRadius: 4, transition: "width .6s ease" },
   barVal:    { fontSize: 12, color: "#a8a29e", width: 38, textAlign: "right" },
 
-  /* footer */
   footer: { textAlign: "center", padding: "24px", fontSize: 13, color: "#d6d3d1", borderTop: "1px solid #f5e6d8" },
 };

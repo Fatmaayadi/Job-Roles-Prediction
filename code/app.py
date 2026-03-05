@@ -3,12 +3,16 @@ import re
 import io
 import os
 import numpy as np
-from datetime import datetime
+from datetime import datetime, timedelta
 
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import OAuth2PasswordBearer
 from pydantic import BaseModel
 from scipy.sparse import hstack, csr_matrix
+
+from jose import JWTError, jwt
+from passlib.context import CryptContext
 
 import spacy
 
@@ -22,14 +26,78 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Paths (works both locally and inside Docker)
+# ── JWT CONFIG ──────────────────────────────────────────────────────────────
+SECRET_KEY                 = "change-this-to-a-long-random-secret-in-production"
+ALGORITHM                  = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 60
+
+pwd_context   = CryptContext(schemes=["bcrypt"], deprecated="auto")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
+
+# In-memory user store  {email: {username, email, hashed_password}}
+USERS_DB: dict = {}
+
+# ── AUTH SCHEMAS ─────────────────────────────────────────────────────────────
+class RegisterRequest(BaseModel):
+    name: str
+    email: str
+    password: str
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+# ── AUTH HELPERS ─────────────────────────────────────────────────────────────
+def create_access_token(email: str, name: str) -> str:
+    expire  = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    payload = {"sub": email, "name": name, "exp": expire}
+    return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+
+async def get_current_user(token: str = Depends(oauth2_scheme)) -> dict:
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        email: str = payload.get("sub")
+        if not email or email not in USERS_DB:
+            raise HTTPException(status_code=401, detail="Invalid or expired token")
+        return USERS_DB[email]
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+
+# ── AUTH ROUTES ───────────────────────────────────────────────────────────────
+@app.post("/auth/register")
+def register(body: RegisterRequest):
+    if body.email in USERS_DB:
+        raise HTTPException(status_code=400, detail="Email already registered")
+    USERS_DB[body.email] = {
+        "username":        body.name,
+        "email":           body.email,
+        "hashed_password": pwd_context.hash(body.password),
+    }
+    return {
+        "access_token": create_access_token(body.email, body.name),
+        "token_type":   "bearer",
+        "username":     body.name,
+        "email":        body.email,
+    }
+
+@app.post("/auth/login")
+def login(body: LoginRequest):
+    user = USERS_DB.get(body.email)
+    if not user or not pwd_context.verify(body.password, user["hashed_password"]):
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+    return {
+        "access_token": create_access_token(body.email, user["username"]),
+        "token_type":   "bearer",
+        "username":     user["username"],
+        "email":        body.email,
+    }
+
+# ── ML SETUP ─────────────────────────────────────────────────────────────────
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PKL_DIR  = os.path.join(BASE_DIR, "data", "pkl")
 
-# Load spaCy model
 nlp = spacy.load("en_core_web_sm")
 
-# Load ML model & vectorizers
 with open(os.path.join(PKL_DIR, "modeling_results_gridsearch.pkl"), "rb") as f:
     results = pickle.load(f)
 
@@ -38,31 +106,21 @@ with open(os.path.join(PKL_DIR, "feature_sets.pkl"), "rb") as f:
 
 model         = results["best_model"]
 label_encoder = results["label_encoder"]
-tfidf         = features["tfidf_vectorizer"]
+vectorizer = features["count_vectorizer"]
 
-# Text cleaning 
+# ── ML HELPERS ───────────────────────────────────────────────────────────────
 def clean(text):
     text = text.lower().replace(";", " ")
     text = re.sub(r"[^a-z0-9\s]", " ", text)
     return re.sub(r"\s+", " ", text).strip()
 
-# Build features 
 def build_features(skills, description, certifications):
-    text  = clean(f"{skills} {description} {certifications}")
-    words = text.split()
-    stats = np.array([[
-        len(text), len(words),
-        np.mean([len(w) for w in words]) if words else 0,
-        len(set(words)),
-        len(set(words)) / (len(words) + 1)
-    ]])
-    return hstack([tfidf.transform([text]), csr_matrix(stats)])
+    text = clean(f"{skills} {description} {certifications}")
+    return vectorizer.transform([text])  # ← sans les stats
 
-# Extract skills & certifications from raw CV text
 def extract_from_cv(text):
     doc = nlp(text)
 
-    # certifications — find sentences with cert keywords
     cert_pattern = re.compile(
         r"(certified|certification|certificate|associate|professional|"
         r"specialist|expert|foundation|practitioner|cka|ckad|cissp|ceh|"
@@ -71,7 +129,6 @@ def extract_from_cv(text):
     )
     certs = list(set(m.group().strip() for m in cert_pattern.finditer(text)))
 
-    # skills — named entities + noun chunks + capitalised words
     ent_skills   = [ent.text for ent in doc.ents if ent.label_ in ("ORG", "PRODUCT") and len(ent.text) > 1]
     chunk_skills = [chunk.text.strip() for chunk in doc.noun_chunks
                     if 1 <= len(chunk.text.split()) <= 3 and chunk.text[0].isupper()]
@@ -90,13 +147,13 @@ def extract_from_cv(text):
         ";".join(certs[:10]),
     )
 
-# Schemas
+# ── ML SCHEMAS ────────────────────────────────────────────────────────────────
 class PredictRequest(BaseModel):
     skills: str
     job_description: str = ""
-    certifications: str 
+    certifications: str
 
-# Endpoints
+# ── ML ROUTES ────────────────────────────────────────────────────────────────
 @app.get("/health")
 def health():
     return {"status": "ok", "time": datetime.utcnow().isoformat()}
@@ -111,7 +168,7 @@ def model_info():
     }
 
 @app.post("/predict")
-def predict(req: PredictRequest):
+def predict(req: PredictRequest, current_user: dict = Depends(get_current_user)):
     X     = build_features(req.skills, req.job_description, req.certifications)
     proba = model.predict_proba(X)[0]
     top3  = np.argsort(proba)[::-1][:3]
@@ -125,10 +182,12 @@ def predict(req: PredictRequest):
     }
 
 @app.post("/predict-cv")
-async def predict_cv(file: UploadFile = File(...)):
+async def predict_cv(
+    file: UploadFile = File(...),
+    current_user: dict = Depends(get_current_user),
+):
     content = await file.read()
 
-    # read text from file
     if file.filename.endswith(".pdf"):
         try:
             import pdfplumber
@@ -142,10 +201,8 @@ async def predict_cv(file: UploadFile = File(...)):
     if not text.strip():
         raise HTTPException(status_code=422, detail="The file appears to be empty.")
 
-    # extract skills & certs directly from CV text
     skills, certifications = extract_from_cv(text)
 
-    # predict
     X     = build_features(skills, text[:500], certifications)
     proba = model.predict_proba(X)[0]
     top3  = np.argsort(proba)[::-1][:3]
